@@ -5,6 +5,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from datetime import timedelta, datetime
 import os
+import json
 from dotenv import load_dotenv
 
 
@@ -23,8 +24,10 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Can be 'Strict', 'Lax', or 'None'
 
 
-# Firebase Admin SDK setup
-cred = credentials.Certificate("firebase-auth.json")
+service_account_info = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+cred_dict = json.loads(service_account_info)  # convert JSON string to dict
+
+cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
