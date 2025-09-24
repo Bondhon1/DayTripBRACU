@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <title>Payment Page</title>
+  <style>
+    /* Reset & basics */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f7fa;
+  margin: 0;
+  padding: 0; /* reset */
+  color: #333;
+
+  display: flex;
+  flex-direction: column; /* stack navbar and content */
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* Container card */
+.card {
+  background-color: white;
+  max-width: 450px;
+  width: 100%;
+  padding: 25px 30px;
+  margin-top: 80px; /* push below navbar */
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(100, 100, 100, 0.1);
+  transition: opacity 0.5s ease, transform 0.4s ease;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.button-group {
+  display: flex;
+  justify-content: center; /* center horizontally */
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+    .card.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Title */
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      font-weight: 700;
+      color: #222;
+    }
+
+    /* Button styles */
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 25px;
+      gap: 10px;
+    }
+    button {
+        flex: 1;
+        padding: 12px 0;
+        border: none;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        color: white;
+        background-color: #007BFF; /* Primary blue */
+        transition: background-color 0.3s ease, transform 0.15s ease;
+        user-select: none;
+        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.4);
+        }
+
+        button:hover,
+        button:focus {
+        background-color: #0056b3; /* Darker blue on hover/focus */
+        outline: none;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 86, 179, 0.6);
+        }
+
+        button:active {
+        background-color: #00408d; /* Even darker on active */
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(0, 64, 141, 0.5);
+        }
+
+    /* Form elements */
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #555;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 20px;
+      border: 1.5px solid #ccc;
+      border-radius: 6px;
+      font-size: 15px;
+      transition: border-color 0.3s ease;
+    }
+    input:focus, select:focus {
+      border-color: #007BFF;
+      outline: none;
+    }
+
+    /* Amount display */
+    #amount-display {
+      font-weight: 600;
+      font-size: 18px;
+      color: #007BFF;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  {% include 'navbar_private.html' %}
+
+<div class="card" id="regChoiceCard">
+  <h1>Payment Page</h1>
+
+  {% if payment and payment.amount %}
+    <div style="text-align:center; font-weight:600; color:#138000; margin-bottom: 15px;">
+      <p>Payment Status: {{ payment.status }}</p>
+      <p>Amount Paid: {{ payment.amount }} Taka</p>
+      <p>Payment Methods: {{ payment.method | replace(',', ', ') }}</p>
+      <p>Payment Numbers: {{ payment.number | replace(',', ', ') }}</p>
+      {% if payment.receiver_number %}
+        <p>Receiver Numbers: {{ payment.receiver_number | replace(',', ', ') }}</p>
+      {% endif %}
+    </div>
+
+    {% if payment.amount == 500 %}
+      <div id="remainingChoice" class="button-group" style="max-width: 450px; margin: 20px auto 0 auto;">
+        <button id="btnRemaining">Pay Remaining (1500 Taka)</button>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="button-group" id="regChoice">
+      <button id="btnPreReg">Pre-registration (500 Taka)</button>
+      <button id="btnFullReg">Full registration (2000 Taka)</button>
+    </div>
+  {% endif %}
+</div>
+
+    </div>
+
+  <div class="card" id="paymentFormCard" style="display:none;">
+    <form id="paymentForm" method="POST" action="/submit-payment">
+      <input type="hidden" name="reg_type" id="reg_type" value=""/>
+
+      <label for="method">Choose Payment Method:</label>
+      <select name="method" id="method">
+        <option value="Bkash">Bkash</option>
+        <option value="Nagad">Nagad</option>
+      </select>
+
+      <label for="trx_id">Transaction ID:</label>
+      <input type="text" name="trx_id" id="trx_id" placeholder="Transaction ID" required />
+
+      <label for="number">Bkash/Nagad Number:</label>
+      <input type="text" name="number" id="number" placeholder="Bkash/Nagad No." required />
+
+      <label for="receiver_number">Receiver Mobile Number:</label>
+      <input type="text" name="receiver_number" id="receiver_number" placeholder="Receiver Mobile No." required />
+
+      <label for="date">Payment Date:</label>
+      <input type="date" name="date" id="date" required />
+
+      <label for="time">Payment Time:</label>
+      <input type="time" name="time" id="time" required />
+
+      <p id="amount-display">Amount: </p>
+
+      <button type="submit" id="payButton">Submit Payment</button>
+    </form>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const btnPreReg = document.getElementById('btnPreReg');
+      const btnFullReg = document.getElementById('btnFullReg');
+      const btnRemaining = document.getElementById('btnRemaining');
+      const regChoiceCard = document.getElementById('regChoiceCard');
+      const regChoice = document.getElementById('regChoice');
+      const remainingChoice = document.getElementById('remainingChoice');
+      const paymentFormCard = document.getElementById('paymentFormCard');
+      const paymentForm = document.getElementById('paymentForm');
+      const regTypeInput = document.getElementById('reg_type');
+      const methodSelect = document.getElementById('method');
+      const amountDisplay = document.getElementById('amount-display');
+
+      const config = {
+        pre: { base: 500, bkashCharge: 10, nagadCharge: 5 },
+        remaining: { base: 1500, bkashCharge: 28, nagadCharge: 13 },
+        full: { base: 2000, bkashCharge: 38, nagadCharge: 18 }
+      };
+
+      function updateAmount() {
+        const method = methodSelect.value;
+        const regType = regTypeInput.value;
+        if (!regType) {
+          amountDisplay.textContent = 'Amount: ';
+          return;
+        }
+        const base = config[regType]?.base || 0;
+        const charge = method === 'Bkash' ? config[regType].bkashCharge : config[regType].nagadCharge;
+        amountDisplay.textContent = 'Amount: ' + (base + charge) + ' Taka';
+      }
+
+      function showForm(type) {
+        regChoiceCard.style.display = 'none';
+        paymentFormCard.style.display = 'block';
+        regTypeInput.value = type;
+        updateAmount();
+        // Smooth fade-in
+        paymentFormCard.classList.add('show');
+      }
+
+      if (btnPreReg) {
+        btnPreReg.addEventListener('click', () => showForm('pre'));
+      }
+      if (btnFullReg) {
+        btnFullReg.addEventListener('click', () => showForm('full'));
+      }
+      if (btnRemaining) {
+        btnRemaining.addEventListener('click', () => showForm('remaining'));
+      }
+
+      methodSelect.addEventListener('change', updateAmount);
+
+      // Initial fade-in for regChoice card if visible
+      if (regChoiceCard.style.display !== 'none') {
+        regChoiceCard.classList.add('show');
+      }
+
+    });
+  </script>
+</body>
+</html>

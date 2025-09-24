@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <title>Profile</title>
+
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 0;
+    }
+
+    main {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+    }
+
+    .profile-card {
+      background: #fff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .profile-card h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      font-size: 26px;
+      color: #333;
+    }
+
+    form {
+      display: grid;
+      gap: 20px;
+    }
+
+    label {
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: block;
+      color: #555;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #4a90e2;
+    }
+
+    button {
+      background: #4a90e2;
+      color: white;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #357ab8;
+    }
+  </style>
+</head>
+<body>
+
+  {% include 'navbar_private.html' %}
+
+  <main>
+    <div class="profile-card">
+      <h1>My Profile</h1>
+
+      <form method="POST" action="{{ url_for('profile') }}">
+        <div>
+          <label for="full_name">Full Name</label>
+          <input type="text" id="full_name" name="full_name" value="{{ user.get('full_name', '') }}" required>
+        </div>
+
+        <div>
+          <label for="student_id">Student ID</label>
+          <input type="text" id="student_id" name="student_id" value="{{ user.get('student_id', '') }}" required>
+        </div>
+
+        <div>
+          <label for="contact_number">Contact Number</label>
+          <input type="tel" id="contact_number" name="contact_number" value="{{ user.get('contact_number', '') }}" required>
+        </div>
+
+        <div>
+          <label for="joining_semester">Joining Semester</label>
+          <select id="joining_semester" name="joining_semester" required>
+            <option value="">--Select--</option>
+            <option value="Spring" {% if user.get('joining_semester') == 'Spring' %}selected{% endif %}>Spring</option>
+            <option value="Summer" {% if user.get('joining_semester') == 'Summer' %}selected{% endif %}>Summer</option>
+            <option value="Fall" {% if user.get('joining_semester') == 'Fall' %}selected{% endif %}>Fall</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="completed_credit">Completed Credit</label>
+          <input type="number" id="completed_credit" name="completed_credit" value="{{ user.get('completed_credit', '') }}" min="0">
+        </div>
+
+        <div>
+          <label for="guardian_contact">Parent/Guardian Contact</label>
+          <input type="tel" id="guardian_contact" name="guardian_contact" value="{{ user.get('guardian_contact', '') }}" required>
+        </div>
+
+        <div>
+          <label for="blood_group">Blood Group</label>
+          <select id="blood_group" name="blood_group" required>
+            <option value="">--Select--</option>
+            {% for group in ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] %}
+              <option value="{{ group }}" {% if user.get('blood_group') == group %}selected{% endif %}>{{ group }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <button type="submit">Save Changes</button>
+      </form>
+    </div>
+  </main>
+
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <title>Admin Dashboard</title>
+
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      background: #f5f6fa;
+      color: #333;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .logout-btn {
+      padding: 0.5rem 1rem;
+      background-color: #dc3545;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .logout-btn:hover {
+      background-color: #c82333;
+    }
+
+    main {
+      padding: 2rem;
+    }
+
+    /* --- Tiles for actions --- */
+    .action-tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .tile {
+      background: white;
+      padding: 2rem 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .tile:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .tile h3 {
+      margin: 0.5rem 0 0;
+      font-size: 1.1rem;
+      color: #2c3e50;
+    }
+
+    .tile span {
+      font-size: 2rem;
+      display: block;
+      color: #3498db;
+    }
+
+    /* --- Analytics cards --- */
+    .analytics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 1.4rem;
+      color: #2c3e50;
+    }
+
+    .card p {
+      margin: 0.5rem 0 0;
+      font-size: 1rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  
+  {% include 'navbar_private.html' %}
+
+  <header>
+    <h1>Admin Dashboard</h1>
+    <a href="/logout" class="logout-btn">Logout</a>
+  </header>
+
+  <main>
+  <!-- Action Tiles -->
+  <div class="action-tiles">
+    <div class="tile" onclick="window.location.href='/add_admin'">
+      <span>➕</span>
+      <h3>Add Admin</h3>
+    </div>
+    <div class="tile" onclick="window.location.href='/view_users'">
+      <span>👥</span>
+      <h3>View Users</h3>
+    </div>
+    <div class="tile" onclick="window.location.href='/view_payments'">
+      <span>💰</span>
+      <h3>View Payments</h3>
+    </div>
+    <div class="tile" onclick="window.location.href='/download_users_excel'">
+      <span>📥</span>
+      <h3>Download Users Excel</h3>
+    </div>
+    <div class="tile" onclick="window.location.href='/download_payments_excel'">
+      <span>📊</span>
+      <h3>Download Payments Excel</h3>
+    </div>
+  </div>
+
+  <!-- Analytics -->
+  <div class="analytics">
+    <div class="card">
+      <h2>{{ total_users }}</h2>
+      <p>Total Users</p>
+    </div>
+    <div class="card">
+      <h2>{{ partial_paid }}</h2>
+      <p>Total Partial Paid (500)</p>
+    </div>
+    <div class="card">
+      <h2>{{ full_paid }}</h2>
+      <p>Total Full Paid</p>
+    </div>
+    <div class="card">
+      <h2>{{ total_collection }}</h2>
+      <p>Total Collection</p>
+    </div>
+    <div class="card">
+      <h2>{{ needed_amount }}</h2>
+      <p>Needed Amount</p>
+    </div>
+  </div>
+
+  <!-- Admin Settings -->
+  <h2 style="margin-top:2rem;">⚙️ Admin Settings</h2>
+  <form method="POST" action="/update_settings" style="background:white; padding:1.5rem; border-radius:10px; max-width:500px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+    <label>Payment Deadline:</label><br>
+    <input type="datetime-local" name="payment_deadline" value="{{ settings.payment_deadline }}" required><br><br>
+
+    <label>Profile Update Deadline:</label><br>
+    <input type="datetime-local" name="profile_update_deadline" value="{{ settings.profile_update_deadline }}" required><br><br>
+
+    <label>Bkash Receiver Number:</label><br>
+    <input type="text" name="bkash_number" value="{{ settings.bkash_number }}" required><br><br>
+
+    <label>Nagad Receiver Number:</label><br>
+    <input type="text" name="nagad_number" value="{{ settings.nagad_number }}" required><br><br>
+
+    <button type="submit" style="padding:0.7rem 1.2rem; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer;">Save Settings</button>
+  </form>
+</main>
+
+ 
+
+</body>
+</html>

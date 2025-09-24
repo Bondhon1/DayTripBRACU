@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flipdown/dist/flipdown.min.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <title>Dashboard</title>
+
+  <style>
+    body { font-family: 'Poppins', sans-serif; background: #f5f6fa; margin: 0; padding: 0; }
+    main { padding: 2rem; }
+    h1 { color: #2c3e50; }
+    .card { background: white; padding: 1.5rem; border-radius: 10px; margin-bottom: 1.5rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .badge { padding: 0.3rem 0.8rem; border-radius: 12px; font-weight: 600; color: white; }
+    .badge.paid { background: #28a745; }
+    .badge.partial { background: #ffc107; color: #212529; }
+    .badge.unpaid { background: #dc3545; }
+    .countdown { margin-top: 1rem; }
+    .flex-row {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap; /* allows wrapping on small screens */
+      }
+
+      .flex-item {
+        flex: 1 1 45%; /* grow to fill, but max 45% width */
+        min-width: 300px; /* prevents too narrow on small screens */
+      }
+
+  </style>
+</head>
+<body>
+
+  {% include 'navbar_private.html' %}
+
+  <main>
+  <h1>Dashboard</h1>
+
+  <div class="flex-row">
+    <!-- User Info -->
+    <div class="card flex-item">
+      <h2>User Info</h2>
+      <p><strong>Student ID:</strong> {{ user_data.student_id }}</p>
+      <p><strong>Full Name:</strong> {{ user_data.full_name }}</p>
+      <p><strong>Email:</strong> {{ user_data.email }}</p>
+
+      {% if payment %}
+        {% if payment.status == "full" %}
+          <p><strong>Payment Status:</strong> <span class="badge paid">Full Paid</span></p>
+        {% elif payment.status == "partial" %}
+          <p><strong>Payment Status:</strong> <span class="badge partial">Partial Paid</span></p>
+        {% else %}
+          <p><strong>Payment Status:</strong> <span class="badge unpaid">Unpaid</span></p>
+        {% endif %}
+      {% else %}
+        <p><strong>Payment Status:</strong> <span class="badge unpaid">Unpaid</span></p>
+      {% endif %}
+    </div>
+
+    <!-- Deadlines -->
+    <div class="card flex-item">
+      <h2>Deadlines</h2>
+
+      <div>
+        <h3>Payment Deadline</h3>
+        <div id="flipdown-payment" class="flipdown"></div>
+      </div>
+
+      <div style="margin-top: 2rem;">
+        <h3>Profile Update Deadline</h3>
+        <div id="flipdown-profile" class="flipdown"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+
+   <!-- FlipDown.js JS -->
+  <script src="https://cdn.jsdelivr.net/npm/flipdown/dist/flipdown.min.js"></script>
+
+  <script>
+    // Helper: get UNIX timestamp in seconds from ISO datetime string
+    function getUnixTimestamp(dateStr) {
+      if (!dateStr) return null;
+      const date = new Date(dateStr);
+      if (isNaN(date)) return null;
+      return Math.floor(date.getTime() / 1000);
+    }
+
+    const paymentDeadlineUnix = getUnixTimestamp({{ settings.payment_deadline|tojson }});
+    const profileDeadlineUnix = getUnixTimestamp({{ settings.profile_update_deadline|tojson }});
+
+    // Initialize FlipDown timers
+    if (paymentDeadlineUnix) {
+      new FlipDown(paymentDeadlineUnix, 'flipdown-payment')
+        .start()
+        .ifEnded(() => {
+          document.getElementById('flipdown-payment').innerHTML = 'Deadline Passed';
+        });
+    } else {
+      document.getElementById('flipdown-payment').innerHTML = 'No deadline set';
+    }
+
+    if (profileDeadlineUnix) {
+      new FlipDown(profileDeadlineUnix, 'flipdown-profile')
+        .start()
+        .ifEnded(() => {
+          document.getElementById('flipdown-profile').innerHTML = 'Deadline Passed';
+        });
+    } else {
+      document.getElementById('flipdown-profile').innerHTML = 'No deadline set';
+    }
+  </script>
+
+</body>
+</html>
