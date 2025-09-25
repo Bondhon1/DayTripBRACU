@@ -172,21 +172,7 @@ def logout():
 ##############################################
 """ Private Routes (Require authorization) """
 
-def fix_date_format(date_str):
-    # Example input: "2025-10-10T23:59" (currently YYYY-DD-MM)
-    if not date_str:
-        return None
-    try:
-        # Split date and time parts
-        date_part, time_part = date_str.split("T")
-        year, day, month = date_part.split("-")  # Current wrong order: YYYY-DD-MM
-        # Rearrange to correct ISO format: YYYY-MM-DD
-        fixed_date = f"{year}-{month}-{day}T{time_part}"
-        # Validate by parsing to datetime
-        datetime.fromisoformat(fixed_date)
-        return fixed_date
-    except Exception as e:
-        return None
+
 
 @app.route('/dashboard')
 @auth_required
@@ -217,8 +203,8 @@ def dashboard():
     if settings_ref.exists:
         settings = settings_ref.to_dict()
         # Fix date formats here before passing to template
-        settings["payment_deadline"] = fix_date_format(settings.get("payment_deadline"))
-        settings["profile_update_deadline"] = fix_date_format(settings.get("profile_update_deadline"))
+        settings["payment_deadline"] = settings.get("payment_deadline")
+        settings["profile_update_deadline"] = settings.get("profile_update_deadline")
     else:
         settings = {}
 
@@ -238,61 +224,92 @@ def profile():
     uid = user.get('uid')
 
     user_ref = db.collection("Users").document(uid)
+    settings_ref = db.collection("Settings").document("config")
+    settings = settings_ref.get().to_dict() or {}
 
     if request.method == 'POST':
-        # Collect form data
-        full_name = request.form.get('full_name')
-        student_id = request.form.get('student_id')
-        contact_number = request.form.get('contact_number')
-        joining_semester = request.form.get('joining_semester')
-        completed_credit = request.form.get('completed_credit')
-        guardian_contact = request.form.get('guardian_contact')
-        blood_group = request.form.get('blood_group')
+        profile_deadline = settings.get("profile_update_deadline")
+        from datetime import datetime
 
-        # Update Firestore
+        if profile_deadline and datetime.fromisoformat(profile_deadline) < datetime.now():
+            flash("Profile update deadline has passed.", "error")
+            return redirect(url_for('profile'))
+
+        # Collect form data
         user_ref.update({
-            "full_name": full_name,
-            "student_id": student_id,
-            "contact_number": contact_number,
-            "joining_semester": joining_semester,
-            "completed_credit": completed_credit,
-            "guardian_contact": guardian_contact,
-            "blood_group": blood_group
+            "full_name": request.form.get('full_name'),
+            "student_id": request.form.get('student_id'),
+            "contact_number": request.form.get('contact_number'),
+            "joining_semester": request.form.get('joining_semester'),
+            "completed_credit": request.form.get('completed_credit'),
+            "guardian_contact": request.form.get('guardian_contact'),
+            "blood_group": request.form.get('blood_group')
         })
 
         return redirect(url_for('profile'))
 
-    # GET method → load current data
     user_data = user_ref.get().to_dict()
+    return render_template('profile.html', user=user_data, profile_update_deadline=settings.get("profile_update_deadline"))
 
-    return render_template('profile.html', user=user_data)
+
 
 @app.route('/payment')
 @auth_required
 def payment():
     user = session.get('user')
     uid = user["uid"]
+
+    # Fetch user data
+    user_ref = db.collection("Users").document(uid)
+    user_doc = user_ref.get()
+    user_data = user_doc.to_dict() if user_doc.exists else {}
+
+    required_fields = ["full_name", "student_id", "contact_number", "blood_group"]
+    missing_info = any(not user_data.get(f) for f in required_fields)
+    not_verified = not user_data.get("verified", False)
+
+    if missing_info or not_verified:
+        flash("Please complete your profile and get verified before making a payment.", "warning")
+        return redirect(url_for("profile"))
+
+    # Fetch settings
+    settings_doc = db.collection("Settings").document("config").get()
+    settings = settings_doc.to_dict() if settings_doc.exists else {}
+
+    payment_deadline = settings.get("payment_deadline")
+    fixed_deadline = None
+    deadline_over = False
+    if payment_deadline:
+        try:
+            fixed_deadline = payment_deadline
+            if fixed_deadline:
+                deadline_date = datetime.fromisoformat(fixed_deadline).date()
+                if datetime.utcnow().date() > deadline_date:
+                    deadline_over = True
+        except Exception as e:
+            app.logger.error(f"Invalid deadline format: {payment_deadline} -> {e}")
+
     payment_ref = db.collection("Payments").document(uid).get()
-
     payment = payment_ref.to_dict() if payment_ref.exists else None
-    
-
-    # print to console/log to check amount type/value
-    if payment:
-        app.logger.debug(f"Payment amount type: {type(payment.get('amount'))}, value: {payment.get('amount')}")
     
     reg_type = "pre"  # default
     if payment:
         status = payment.get("status")
-        # Check explicitly for numeric value 500 or string '500'
         amount = payment.get('amount')
         if amount == 500 or amount == '500':
             reg_type = "remaining"
         elif status == "paid":
             reg_type = "done"
 
-    return render_template('payment.html', user=user, reg_type=reg_type, payment=payment)
-
+    return render_template(
+        'payment.html',
+        user=user_data,
+        reg_type=reg_type,
+        payment=payment,
+        deadline_over=deadline_over,
+        fixed_deadline=fixed_deadline,
+        settings=settings
+    )
 
 @app.route('/submit-payment', methods=['POST'])
 @auth_required
@@ -510,11 +527,16 @@ def update_settings():
     bkash_number = request.form.get("bkash_number")
     nagad_number = request.form.get("nagad_number")
 
+    admin_email = session.get("admin", {}).get("email")  # get admin email from session
+    updated_at = datetime.utcnow().isoformat()          # store UTC timestamp
+
     db.collection("Settings").document("config").set({
         "payment_deadline": payment_deadline,
         "profile_update_deadline": profile_update_deadline,
         "bkash_number": bkash_number,
-        "nagad_number": nagad_number
+        "nagad_number": nagad_number,
+        "admin_email": admin_email,
+        "updated_at": updated_at
     })
 
     flash("Settings updated successfully!", "success")

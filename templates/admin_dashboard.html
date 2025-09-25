@@ -115,7 +115,7 @@
 <body>
   
   {% include 'navbar_private.html' %}
-
+  {% include 'flash.html' %}
   <header>
     <h1>Admin Dashboard</h1>
     <a href="/logout" class="logout-btn">Logout</a>
@@ -172,21 +172,51 @@
 
   <!-- Admin Settings -->
   <h2 style="margin-top:2rem;">⚙️ Admin Settings</h2>
-  <form method="POST" action="/update_settings" style="background:white; padding:1.5rem; border-radius:10px; max-width:500px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-    <label>Payment Deadline:</label><br>
-    <input type="datetime-local" name="payment_deadline" value="{{ settings.payment_deadline }}" required><br><br>
+  <div style="background:white; padding:1.5rem; border-radius:10px; max-width:700px; width:90%; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin:auto;">
+  {% if settings.admin_email and settings.updated_at %}
+  <div style="margin-bottom: 1rem; font-size: 0.9rem; color:#555;">
+    <strong>Last Updated:</strong> {{ settings.updated_at | replace('T', ' ') }}<br>
+    <strong>By Admin:</strong> {{ settings.admin_email }}
+  </div>
+  {% endif %}
 
-    <label>Profile Update Deadline:</label><br>
-    <input type="datetime-local" name="profile_update_deadline" value="{{ settings.profile_update_deadline }}" required><br><br>
+  <form method="POST" action="/update_settings" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; align-items:end;">
+    <div>
+      <label>Payment Deadline:</label><br>
+      <input type="datetime-local" name="payment_deadline" value="{{ settings.payment_deadline }}" required style="width:100%;">
+    </div>
 
-    <label>Bkash Receiver Number:</label><br>
-    <input type="text" name="bkash_number" value="{{ settings.bkash_number }}" required><br><br>
+    <div>
+      <label>Profile Update Deadline:</label><br>
+      <input type="datetime-local" name="profile_update_deadline" value="{{ settings.profile_update_deadline }}" required style="width:100%;">
+    </div>
 
-    <label>Nagad Receiver Number:</label><br>
-    <input type="text" name="nagad_number" value="{{ settings.nagad_number }}" required><br><br>
+    <div>
+      <label>Bkash Receiver Number:</label><br>
+      <input type="text" name="bkash_number" value="{{ settings.bkash_number }}" required style="width:100%;">
+    </div>
 
-    <button type="submit" style="padding:0.7rem 1.2rem; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer;">Save Settings</button>
+    <div>
+      <label>Nagad Receiver Number:</label><br>
+      <input type="text" name="nagad_number" value="{{ settings.nagad_number }}" required style="width:100%;">
+    </div>
+
+    <div style="grid-column: 1 / -1; text-align:right; margin-top:10px;">
+      <button type="submit" style="padding:0.7rem 1.2rem; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer;">Save Settings</button>
+    </div>
   </form>
+</div>
+
+<style>
+  @media (max-width: 600px) {
+    form {
+      grid-template-columns: 1fr; /* stack fields on small screens */
+    }
+  }
+</style>
+
+
+
 </main>
 
  

@@ -421,3 +421,43 @@ footer {
         padding: 0;
     }
 }
+#flash-messages {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: auto;
+  z-index: 9999;
+}
+
+.flash {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 250px;
+  max-width: 350px;
+  padding: 12px 20px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  opacity: 0.95;
+  animation: slideIn 0.5s ease;
+  cursor: pointer;
+}
+
+.flash.success { background-color: #28a745; }
+.flash.warning { background-color: #ffc107; color: #333; }
+.flash.error   { background-color: #dc3545; }
+.flash.info    { background-color: #3498db; }
+
+.flash .close {
+  margin-left: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+@keyframes slideIn {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 0.95; }
+}

@@ -84,7 +84,7 @@
 <body>
 
   {% include 'navbar_private.html' %}
-
+  {% include 'flash.html' %}
   <main>
     <div class="profile-card">
       <h1>My Profile</h1>
@@ -135,10 +135,39 @@
           </select>
         </div>
 
-        <button type="submit">Save Changes</button>
+        <button type="submit" id="saveBtn">Save Changes</button>
       </form>
     </div>
   </main>
+<script>
+  const saveBtn = document.getElementById('saveBtn');
+  const deadlineStr = "{{ profile_update_deadline }}"; // ISO string from Flask
 
+  function checkDeadline() {
+    if (!deadlineStr) return;
+
+    const now = new Date();
+    const deadline = new Date(deadlineStr);
+
+    if (now > deadline) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Profile Update Closed";
+      saveBtn.style.background = "#ccc";
+      saveBtn.style.cursor = "not-allowed";
+    } else {
+      // Optional: Re-enable if page loaded before deadline
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save Changes";
+      saveBtn.style.background = "#3498db";
+      saveBtn.style.cursor = "pointer";
+    }
+  }
+
+  // Check immediately on load
+  checkDeadline();
+
+  // Check every second
+  setInterval(checkDeadline, 1000);
+</script>
 </body>
 </html>

@@ -129,7 +129,7 @@
 </head>
 <body>
   {% include 'navbar_private.html' %}
-
+  {% include 'flash.html' %}
 <div class="card" id="regChoiceCard">
   <h1>Payment Page</h1>
 
@@ -150,10 +150,16 @@
       </div>
     {% endif %}
   {% else %}
-    <div class="button-group" id="regChoice">
-      <button id="btnPreReg">Pre-registration (500 Taka)</button>
-      <button id="btnFullReg">Full registration (2000 Taka)</button>
-    </div>
+      {% if deadline_over %}
+        <div style="text-align:center; color:red; font-weight:600;">
+          <p>⚠ Payment deadline has passed. Please contact management for further assistance.</p>
+        </div>
+      {% else %}
+        <div class="button-group" id="regChoice">
+          <button id="btnPreReg">Pre-registration (500 Taka)</button>
+          <button id="btnFullReg">Full registration (2000 Taka)</button>
+        </div>
+      {% endif %}
   {% endif %}
 </div>
 
@@ -176,7 +182,9 @@
       <input type="text" name="number" id="number" placeholder="Bkash/Nagad No." required />
 
       <label for="receiver_number">Receiver Mobile Number:</label>
-      <input type="text" name="receiver_number" id="receiver_number" placeholder="Receiver Mobile No." required />
+      <select name="receiver_number" id="receiver_number" required>
+        <!-- options inserted by JS -->
+      </select>
 
       <label for="date">Payment Date:</label>
       <input type="date" name="date" id="date" required />
@@ -249,6 +257,58 @@
       }
 
     });
+     document.addEventListener('DOMContentLoaded', () => {
+    const methodSelect = document.getElementById('method');
+    const receiverDropdown = document.getElementById('receiver_number');
+
+    const bkashNumbers = "{{ settings.bkash_number or '' }}".split(",");
+    const nagadNumbers = "{{ settings.nagad_number or '' }}".split(",");
+
+    function updateReceiverOptions() {
+      receiverDropdown.innerHTML = "";
+      const numbers = methodSelect.value === 'Bkash' ? bkashNumbers : nagadNumbers;
+      numbers.forEach(num => {
+        if (num.trim()) {
+          const opt = document.createElement('option');
+          opt.value = num.trim();
+          opt.textContent = num.trim();
+          receiverDropdown.appendChild(opt);
+        }
+      });
+    }
+
+    methodSelect.addEventListener('change', updateReceiverOptions);
+    updateReceiverOptions(); // initial load
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const deadlineString = "{{ fixed_deadline or '' }}"; // e.g. "2025-10-05T23:59:00"
+    const deadline = deadlineString ? new Date(deadlineString) : null;
+
+    const allButtons = [
+      document.getElementById("btnPreReg"),
+      document.getElementById("btnFullReg"),
+      document.getElementById("btnRemaining"),
+      document.getElementById("payButton"),
+    ].filter(Boolean); // remove nulls
+
+    function updateDeadlineState() {
+      if (!deadline) return;
+      const now = new Date();
+      if (now >= deadline) {
+        allButtons.forEach(btn => {
+          btn.disabled = true;
+          btn.style.opacity = "0.6";
+          btn.style.cursor = "not-allowed";
+        });
+      }
+    }
+
+    updateDeadlineState();              // run immediately
+    setInterval(updateDeadlineState, 30000); // check every 30s
+  });
+
+
   </script>
 </body>
 </html>
