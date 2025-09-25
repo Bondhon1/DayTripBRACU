@@ -63,48 +63,54 @@
         <input type="password" id="admin-password-input" placeholder="Password" required />
         <button type="submit">Admin Login</button>
         <p id="admin-error-msg"></p>
+        <button type="button" id="google-signin-btn">Sign in with Google</button>
+    
     </form>
     <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
-
     <script type="module">
-      import { auth } from '/static/firebase-config.js';
-      import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { auth, provider } from '/static/firebase-config.js';
+import { signInWithPopup, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
-      const form = document.getElementById('admin-login-form');
-      const errorMsg = document.getElementById('admin-error-msg');
+const googleBtn = document.getElementById('google-signin-btn');
+const errorMsg = document.getElementById('admin-error-msg');
 
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('admin-email-input').value.trim();
-        const password = document.getElementById('admin-password-input').value;
+googleBtn.addEventListener('click', async () => {
+    provider.setCustomParameters({ prompt: 'select_account' });
 
-        try {
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          const user = userCredential.user;
-          
-          const idToken = await user.getIdToken();
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
 
-          const response = await fetch('/admin-auth', {
+        
+
+        
+
+        const idToken = await user.getIdToken();
+
+        // Send token to backend for role check
+        const response = await fetch('/admin-auth', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${idToken}`
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
             }
-          });
+        });
 
-          if (response.ok) {
+        if (response.ok) {
             window.location.href = '/admin-dashboard';
-          } else if (response.status === 403) {
+        } else if (response.status === 403) {
             errorMsg.textContent = 'Access denied. Not an admin.';
             await auth.signOut();
-          } else {
+        } else {
             errorMsg.textContent = 'Login failed. Please try again.';
             await auth.signOut();
-          }
-        } catch (error) {
-          errorMsg.textContent = 'Invalid email or password.';
         }
-      });
-    </script>
+
+    } catch (error) {
+        console.error("Google sign-in error:", error);
+        errorMsg.textContent = "Google sign-in failed. Please try again.";
+    }
+});
+</script>
 </body>
 </html>

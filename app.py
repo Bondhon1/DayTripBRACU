@@ -7,6 +7,12 @@ from datetime import timedelta, datetime
 import os
 import json
 from dotenv import load_dotenv
+from flask import Flask, send_file
+from io import BytesIO
+from openpyxl import Workbook
+import math
+
+
 
 
 load_dotenv()
@@ -227,16 +233,25 @@ def profile():
     settings_ref = db.collection("Settings").document("config")
     settings = settings_ref.get().to_dict() or {}
 
+    payment_ref = db.collection("Payments").document(uid).get()
+    payment = payment_ref.to_dict() if payment_ref.exists else None
+
+    paid_full_amount = False
+    if payment:
+        amount = payment.get('amount', 0)
+        status = payment.get('status', '')
+        if (str(amount) == '2000' or amount == 2000) and status == 'paid':
+            paid_full_amount = True
+
     if request.method == 'POST':
         profile_deadline = settings.get("profile_update_deadline")
         from datetime import datetime
-
         if profile_deadline and datetime.fromisoformat(profile_deadline) < datetime.now():
             flash("Profile update deadline has passed.", "error")
             return redirect(url_for('profile'))
 
         # Collect form data
-        user_ref.update({
+        data_to_update = {
             "full_name": request.form.get('full_name'),
             "student_id": request.form.get('student_id'),
             "contact_number": request.form.get('contact_number'),
@@ -244,12 +259,24 @@ def profile():
             "completed_credit": request.form.get('completed_credit'),
             "guardian_contact": request.form.get('guardian_contact'),
             "blood_group": request.form.get('blood_group')
-        })
+        }
 
+        # Update T-shirt size only if the field is visible
+        t_shirt_size = request.form.get('t_shirt_size')
+        if paid_full_amount or session.get('user', {}).get('role') == 'admin':
+            data_to_update['t_shirt_size'] = t_shirt_size
+
+        user_ref.update(data_to_update)
+        flash("Profile updated successfully.", "success")
         return redirect(url_for('profile'))
 
-    user_data = user_ref.get().to_dict()
-    return render_template('profile.html', user=user_data, profile_update_deadline=settings.get("profile_update_deadline"))
+    user_data = user_ref.get().to_dict() or {}
+    return render_template(
+        'profile.html',
+        user=user_data,
+        profile_update_deadline=settings.get("profile_update_deadline"),
+        paid_full_amount=paid_full_amount
+    )
 
 
 
@@ -342,11 +369,11 @@ def submit_payment():
     elif reg_type == 'full':
         base_amount = 2000
         charge = 38 if method == 'Bkash' else 18
-        status = 'paid'
+        status = 'pending'
     elif reg_type == 'remaining':
         base_amount = 2000  # Total amount stored for pre+remaining
         charge = 28 if method == 'Bkash' else 13
-        status = 'paid'
+        status = 'pending'
     else:
         flash("Invalid registration type", "error")
         return redirect(url_for('payment'))
@@ -459,25 +486,23 @@ def admin_auth():
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         uid = decoded_token['uid']
 
-        # Get user document by UID
         user_ref = db.collection("Users").document(uid).get()
         if not user_ref.exists:
             return "Unauthorized - User not registered", 401
 
         user_data = user_ref.to_dict()
 
-        # Only allow if role is admin
+        # Check if user is admin
         if user_data.get('role') != 'admin':
             return "Forbidden - Not an admin", 403
 
-        # Login successful: set session with user info
         session['admin'] = user_data
-
         return "Authorized", 200
 
     except Exception as e:
         app.logger.error(f"Admin auth error: {e}")
         return "Unauthorized", 401
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -542,5 +567,426 @@ def update_settings():
     flash("Settings updated successfully!", "success")
     return redirect(url_for("admin_dashboard"))
 
+# Admin Dashboard
+@app.route('/admin-dashboard-page')
+@admin_required
+def admin_dashboard_page():
+    admin = session.get('admin')
+
+    uid = admin.get('uid')
+
+    # Fetch settings
+    settings_doc = db.collection("Settings").document("config").get()
+    settings = settings_doc.to_dict() if settings_doc.exists else {}
+
+    # Analytics
+    needed_amount = 800 * 2000
+    total_users = len(db.collection("Users").get())
+    payments = db.collection("Payments").stream()
+
+    total_collection, partial_paid, full_paid = 0, 0, 0
+    for doc in payments:
+        amount = doc.to_dict().get("amount", 0)
+        total_collection += amount
+        if amount == 500:
+            partial_paid += 1
+        elif amount == 2000:
+            full_paid += 1
+
+    return render_template(
+        "admin_dashboard.html",
+        total_users=total_users,
+        partial_paid=partial_paid,
+        full_paid=full_paid,
+        total_collection=total_collection,
+        needed_amount=needed_amount,
+        settings=settings
+    )
+
+# Admin Profile
+@app.route('/admin-profile', methods=['GET', 'POST'])
+@admin_required
+def admin_profile():
+    admin = session.get('admin')
+    uid = admin.get('uid')
+    user_ref = db.collection("Users").document(uid)
+    settings_ref = db.collection("Settings").document("config")
+    settings = settings_ref.get().to_dict() or {}
+
+    if request.method == 'POST':
+        profile_deadline = settings.get("profile_update_deadline")
+        from datetime import datetime
+        if profile_deadline and datetime.fromisoformat(profile_deadline) < datetime.now():
+            flash("Profile update deadline has passed.", "error")
+            return redirect(url_for('admin_profile'))
+
+        user_ref.update({
+            "full_name": request.form.get('full_name'),
+            "student_id": request.form.get('student_id'),
+            "contact_number": request.form.get('contact_number'),
+            "joining_semester": request.form.get('joining_semester'),
+            "completed_credit": request.form.get('completed_credit'),
+            "guardian_contact": request.form.get('guardian_contact'),
+            "blood_group": request.form.get('blood_group')
+        })
+        flash("Profile updated successfully.", "success")
+        return redirect(url_for('admin_profile'))
+
+    user_data = user_ref.get().to_dict()
+    return render_template(
+        'profile.html',
+        user=user_data,
+        profile_update_deadline=settings.get("profile_update_deadline")
+    )
+
+# Admin Payment
+@app.route('/admin-payment')
+@admin_required
+def admin_payment():
+    admin = session.get('admin')
+    uid = admin.get('uid')
+
+    # Fetch user data
+    user_ref = db.collection("Users").document(uid)
+    user_doc = user_ref.get()
+    user_data = user_doc.to_dict() if user_doc.exists else {}
+
+    required_fields = ["full_name", "student_id", "contact_number", "blood_group"]
+    missing_info = any(not user_data.get(f) for f in required_fields)
+    not_verified = not user_data.get("verified", False)
+
+    if missing_info or not_verified:
+        flash("Please complete your profile and get verified before making a payment.", "warning")
+        return redirect(url_for("admin_profile"))
+
+    # Fetch settings
+    settings_doc = db.collection("Settings").document("config").get()
+    settings = settings_doc.to_dict() if settings_doc.exists else {}
+
+    payment_deadline = settings.get("payment_deadline")
+    fixed_deadline = None
+    deadline_over = False
+    from datetime import datetime
+    if payment_deadline:
+        try:
+            fixed_deadline = payment_deadline
+            deadline_date = datetime.fromisoformat(fixed_deadline).date()
+            if datetime.utcnow().date() > deadline_date:
+                deadline_over = True
+        except Exception as e:
+            app.logger.error(f"Invalid deadline format: {payment_deadline} -> {e}")
+
+    payment_ref = db.collection("Payments").document(uid).get()
+    payment = payment_ref.to_dict() if payment_ref.exists else None
+
+    reg_type = "pre"  # default
+    if payment:
+        status = payment.get("status")
+        amount = payment.get('amount')
+        if amount == 500 or amount == '500':
+            reg_type = "remaining"
+        elif status == "paid":
+            reg_type = "done"
+
+    return render_template(
+        'payment.html',
+        user=user_data,
+        reg_type=reg_type,
+        payment=payment,
+        deadline_over=deadline_over,
+        fixed_deadline=fixed_deadline,
+        settings=settings
+    )
+
+@app.route('/add_admin', methods=['GET'])
+@admin_required
+def add_admin():
+    return render_template('add_admin.html')
+
+@app.route('/search_users')
+@admin_required
+def search_users():
+    query = request.args.get('q', '').strip().lower()
+    if not query:
+        return jsonify([])
+
+    users_ref = db.collection("Users")
+    all_users = users_ref.stream()
+
+    results = []
+    for doc in all_users:
+        data = doc.to_dict()
+        email = data.get('email', '').lower()
+        student_id = str(data.get('student_id', '')).lower()
+        if query in email or query in student_id:
+            results.append({
+                'uid': doc.id,
+                'full_name': data.get('full_name', ''),
+                'email': data.get('email', ''),
+                'student_id': data.get('student_id', '')
+            })
+    return jsonify(results)
+
+@app.route('/promote_admin', methods=['POST'])
+@admin_required
+def promote_admin():
+    uid = request.json.get('uid')
+    if not uid:
+        return jsonify({"error": "Missing UID"}), 400
+
+    user_ref = db.collection("Users").document(uid)
+    if not user_ref.get().exists:
+        return jsonify({"error": "User not found"}), 404
+
+    user_ref.update({"role": "admin"})
+    return jsonify({"success": True})
+
+@app.route('/view_users')
+@admin_required
+def view_users():
+    # Pagination
+    page = int(request.args.get('page', 1))
+    per_page = 50
+    start = (page - 1) * per_page
+    end = start + per_page
+
+    # Sorting
+    sort_by = request.args.get('sort_by', 'createdAt')  # 'createdAt' or 'email'
+    sort_order = request.args.get('sort_order', 'desc')  # 'asc' or 'desc'
+
+    # Search filters
+    search_name = request.args.get('full_name', '').strip().lower()
+    search_email = request.args.get('email', '').strip().lower()
+    search_student = request.args.get('student_id', '').strip()
+    search_date = request.args.get('createdAt', '').strip()  # YYYY-MM-DD
+
+    # Fetch all users
+    users_docs = db.collection("Users").stream()
+    users = []
+
+    for doc in users_docs:
+        u = doc.to_dict()
+
+        # Handle missing fields gracefully
+        u.setdefault('full_name', '')
+        u.setdefault('student_id', '')
+        u.setdefault('email', '')
+        u.setdefault('createdAt', '')
+
+        # Filtering
+        if search_name and search_name not in u['full_name'].lower():
+            continue
+        if search_email and search_email not in u['email'].lower():
+            continue
+        if search_student and search_student not in u['student_id']:
+            continue
+        if search_date:
+            try:
+                date_obj = datetime.fromisoformat(u['createdAt'].replace("Z",""))
+                if search_date != date_obj.strftime("%Y-%m-%d"):
+                    continue
+            except:
+                continue
+
+        users.append(u)
+
+    # Sorting
+    if sort_by == 'createdAt':
+        users.sort(key=lambda x: x.get('createdAt') or '', reverse=(sort_order=='desc'))
+    elif sort_by == 'email':
+        users.sort(key=lambda x: x.get('email','').lower(), reverse=(sort_order=='desc'))
+
+    # Pagination slice
+    total_users = len(users)
+    total_pages = (total_users + per_page - 1) // per_page
+    users_paginated = users[start:end]
+
+    return render_template(
+        'view_users.html',
+        users=users_paginated,
+        page=page,
+        total_pages=total_pages,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        search_name=search_name,
+        search_email=search_email,
+        search_student=search_student,
+        search_date=search_date
+    )
+
+@app.route("/download_users_excel")
+def download_users_excel():
+    users_ref = db.collection("Users")
+    users_docs = users_ref.stream()
+
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Users"
+
+    # Headers (columns)
+    headers = [
+        "Email", "Full Name", "Student ID", "Contact Number",
+        "Guardian Contact", "Blood Group", "Completed Credit",
+        "Joining Semester", "T-shirt Size", "Verified", "Role", "Created At"
+    ]
+    ws.append(headers)
+
+    # Add users
+    for doc in users_docs:
+        u = doc.to_dict()
+        row = [
+            u.get("email", ""),
+            u.get("full_name", ""),
+            u.get("student_id", ""),
+            u.get("contact_number", ""),
+            u.get("guardian_contact", ""),
+            u.get("blood_group", ""),
+            u.get("completed_credit", ""),
+            u.get("joining_semester", ""),
+            u.get("t_shirt_size", ""),
+            u.get("verified", False),
+            u.get("role", "user"),
+            u.get("createdAt", "")
+        ]
+        ws.append(row)
+
+    # Save workbook to a BytesIO stream
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name="users.xlsx",
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@app.route("/update_user/<uid>", methods=["POST"])
+def update_user(uid):
+    data = request.get_json()
+    user_ref = db.collection("Users").document(uid)
+    user_ref.update(data)
+    return jsonify({"status": "success"})
+
+@app.route("/update_payment_status/<uid>", methods=["POST"])
+def update_payment_status(uid):
+    payment_ref = db.collection('Payments').document(uid)
+    payment_ref.update({'status': 'paid'})
+    return '', 200
+@app.route("/view_payments")
+def view_payments():
+    # Pagination params
+    page = int(request.args.get('page', 1))
+    per_page = 50
+
+    # Filters
+    search_email = request.args.get('email', '').strip()
+    search_student = request.args.get('student_id', '').strip()
+    search_date = request.args.get('date', '').strip()
+
+    # Sorting
+    sort_by = request.args.get('sort_by', 'date')
+    sort_order = request.args.get('sort_order', 'desc')
+
+    payments_ref = db.collection('Payments')
+    docs = [d.to_dict() | {'uid': d.id} for d in payments_ref.stream()]
+
+    # Filter manually (since some fields are CSV)
+    def matches(doc):
+        if search_email and search_email.lower() not in doc.get('email', '').lower():
+            return False
+        if search_student and search_student != doc.get('student_id', ''):
+            return False
+        if search_date:
+            # check if date exists in CSV
+            dates = [d.strip() for d in doc.get('date', '').split(',')]
+            if search_date not in dates:
+                return False
+        return True
+
+    filtered = list(filter(matches, docs))
+
+    # Sort
+    def sort_key(doc):
+        val = doc.get(sort_by, '')
+        # For CSV fields, just take first value for sorting
+        if ',' in str(val):
+            val = str(val).split(',')[0].strip()
+        return val
+
+    reverse = sort_order == 'desc'
+    filtered.sort(key=sort_key, reverse=reverse)
+
+    # Pagination
+    total = len(filtered)
+    total_pages = math.ceil(total / per_page)
+    start = (page - 1) * per_page
+    end = start + per_page
+    payments = filtered[start:end]
+
+    return render_template("view_payments.html",
+                           payments=payments,
+                           page=page,
+                           total_pages=total_pages,
+                           search_email=search_email,
+                           search_student=search_student,
+                           search_date=search_date,
+                           sort_by=sort_by,
+                           sort_order=sort_order)
+
+@app.route("/download_payments_excel")
+def download_payments_excel():
+    payments_ref = db.collection("Payments")
+    docs = payments_ref.stream()
+
+    # Create workbook and active sheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Payments"
+
+    # Header row
+    headers = [
+        "Email", "Student ID", "Amount", "Charge", "Method",
+        "Number(s)", "Receiver Number", "Date", "Time", "Trx ID", "Status"
+    ]
+    ws.append(headers)
+
+    # Add data rows
+    data_found = False
+    for doc in docs:
+        data_found = True
+        data = doc.to_dict()
+        ws.append([
+            data.get("email", ""),
+            data.get("student_id", ""),
+            data.get("amount", ""),
+            data.get("charge", ""),
+            data.get("method", ""),
+            data.get("number", ""),
+            data.get("receiver_number", ""),
+            data.get("date", ""),
+            data.get("time", ""),
+            data.get("trx_id", ""),
+            data.get("status", "")
+        ])
+
+    if not data_found:
+        flash("No payments found to export", "error")
+        return redirect("/view_payments")
+
+    # Save workbook to a BytesIO stream
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    # Send as file
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="payments.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 if __name__ == '__main__':
     app.run(debug=True)

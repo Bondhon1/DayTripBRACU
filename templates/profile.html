@@ -134,7 +134,18 @@
             {% endfor %}
           </select>
         </div>
-
+        
+        {% if paid_full_amount or session.get('user', {}).get('role') == 'admin' %}
+        <div>
+          <label for="t_shirt_size">T-shirt Size</label>
+          <select id="t_shirt_size" name="t_shirt_size">
+            <option value="">--Select--</option>
+            {% for size in ['XS','S','M','L','XL','XXL','XXXL','Custom'] %}
+              <option value="{{ size }}" {% if user.get('t_shirt_size') == size %}selected{% endif %}>{{ size }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
         <button type="submit" id="saveBtn">Save Changes</button>
       </form>
     </div>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <title>Add admin</title>
+</head>
+  <body>
+    {% include 'navbar_private.html' %}
+    {% include 'flash.html' %}
+<div class="add-admin-container">
+    <h2>Add Admin</h2>
+    <input type="text" id="searchBox" placeholder="Search by email or student ID">
+    <ul id="searchResults"></ul>
+</div>
+
+<script>
+const searchBox = document.getElementById('searchBox');
+const searchResults = document.getElementById('searchResults');
+let timeout = null;
+
+searchBox.addEventListener('input', () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+        const query = searchBox.value.trim();
+        if (!query) {
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        fetch(`/search_users?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(users => {
+            searchResults.innerHTML = '';
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.innerHTML = `${user.full_name} - ${user.email} - ${user.student_id}`;
+                li.style.cursor = 'pointer';
+                li.addEventListener('click', () => {
+                    if (confirm(`Promote ${user.full_name} to admin?`)) {
+                        fetch('/promote_admin', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ uid: user.uid })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(`${user.full_name} is now an admin`);
+                                li.remove();
+                            } else {
+                                alert(`Error: ${data.error}`);
+                            }
+                        })
+                        .catch(err => alert("Request failed: " + err));
+                    }
+                });
+                searchResults.appendChild(li);
+            });
+        });
+    }, 300); // Debounce 300ms
+});
+</script>
+
+<style>
+.add-admin-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#searchBox {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+#searchResults li {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+#searchResults li:hover {
+    background-color: #f0f0f0;
+}
+</style>
+</body>
+</html>

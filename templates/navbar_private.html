@@ -3,10 +3,18 @@
     <span class="hamburger">&#9776;</span> <!-- Hamburger Icon -->
     <div class="navbar-right" id="navbarRight">
         <span class="closebtn">&times;</span>
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
         <a href="#contact">Contact</a>
+        {% if session.get('admin') %}
+        <a href="{{ url_for('admin_dashboard_page') }}">Admin Dashboard</a>
+        <a href="{{ url_for('admin_profile') }}">Profile</a>
+        <a href="{{ url_for('admin_payment') }}">Payment</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
         <a href="{{ url_for('profile') }}">Profile</a>
         <a href="{{ url_for('payment') }}">Payment</a>
-        <a id="sign-out-btn" href="{{ url_for('logout') }}">Logout</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
+
     </div>
 </div>

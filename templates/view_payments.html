@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+<title>View Payments</title>
+<style>
+  body { font-family: 'Poppins', sans-serif; margin:0; padding:2rem; background:#f5f5f5; color:#333; }
+  h2 { text-align:center; margin-bottom:1rem; }
+
+  /* Filters */
+  .controls { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; justify-content:center; }
+  .controls input, .controls select, .controls button { padding:0.5rem; border-radius:5px; border:1px solid #ccc; font-size:0.95rem; }
+  .controls button { background:#3498db; color:white; border:none; cursor:pointer; }
+
+  /* Table */
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 0 10px #ccc; }
+  th, td { padding:0.75rem 0.5rem; border-bottom:1px solid #eee; text-align:left; font-size:0.95rem; }
+  th { background:#007bff; color:#fff; cursor:pointer; }
+  tr:hover { background:#f1f8ff; }
+
+  .pagination { margin-top:1rem; text-align:center; }
+  .pagination a { margin:0 0.5rem; text-decoration:none; color:#007bff; }
+  .pagination a:hover { text-decoration:underline; }
+
+  .update-status-btn { padding:0.3rem 0.6rem; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem; }
+</style>
+</head>
+<body>
+
+{% include 'navbar_private.html' %}
+{% include 'flash.html' %}
+
+<h2>Payments</h2>
+
+<!-- Filter & Sorting -->
+<div class="controls-row">
+  <input type="text" id="search-email" placeholder="Email" value="{{ search_email }}">
+  <input type="text" id="search-student" placeholder="Student ID" value="{{ search_student }}">
+  <input type="date" id="search-date" value="{{ search_date }}">
+  
+  <select id="sort-by">
+    <option value="date" {% if sort_by=='date' %}selected{% endif %}>Sort by Date</option>
+    <option value="time" {% if sort_by=='time' %}selected{% endif %}>Sort by Time</option>
+    <option value="email" {% if sort_by=='email' %}selected{% endif %}>Sort by Email</option>
+    <option value="student_id" {% if sort_by=='student_id' %}selected{% endif %}>Sort by Student ID</option>
+  </select>
+  
+  <select id="sort-order">
+    <option value="asc" {% if sort_order=='asc' %}selected{% endif %}>Asc</option>
+    <option value="desc" {% if sort_order=='desc' %}selected{% endif %}>Desc</option>
+  </select>
+  
+  <button id="apply-filters">Apply</button>
+</div>
+
+<style>
+.controls-row {
+  display: flex;
+  flex-wrap: wrap; /* allows wrapping on small screens */
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  align-items: center;
+  justify-content: flex-start;
+  background: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.controls-row input,
+.controls-row select {
+  flex: 1 1 150px; /* grow, shrink, base width */
+  min-width: 120px;
+  max-width: 200px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 0.95rem;
+  box-sizing: border-box; /* include padding/border in width */
+}
+
+.controls-row button {
+  flex: 0 0 auto; /* don't stretch button */
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: 6px;
+  background: #3498db;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.controls-row button:hover {
+  background: #2980b9;
+}
+
+/* Responsive: stack fields on small screens */
+@media (max-width: 600px) {
+  .controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .controls-row input,
+  .controls-row select,
+  .controls-row button {
+    flex: 1 1 auto; /* allow natural width */
+    width: 100%;
+    max-width: 100%;
+  }
+}
+</style>
+
+
+<!-- Payments Table -->
+<table>
+  <thead>
+    <tr>
+      <th>Email</th>
+      <th>Student ID</th>
+      <th>Amount</th>
+      <th>Charge</th>
+      <th>Method</th>
+      <th>Number(s)</th>
+      <th>Receiver</th>
+      <th>Date</th>
+      <th>Time</th>
+      <th>Trx ID</th>
+      <th>Status</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in payments %}
+    <tr>
+      <td>{{ p.email }}</td>
+      <td>{{ p.student_id }}</td>
+      <td>{{ p.amount }}</td>
+      <td>{{ p.charge }}</td>
+      <td>{{ p.method }}</td>
+      <td>{{ p.number }}</td>
+      <td>{{ p.receiver_number }}</td>
+      <td>{{ p.date }}</td>
+      <td>{{ p.time }}</td>
+      <td>{{ p.trx_id }}</td>
+      <td>{{ p.status }}</td>
+      <td>
+        {% if p.status != 'paid' %}
+        <button class="update-status-btn" data-uid="{{ p.uid }}">Mark Paid</button>
+        {% else %}
+        -
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="pagination">
+  {% if page > 1 %}
+    <a href="?page={{ page-1 }}&sort_by={{ sort_by }}&sort_order={{ sort_order }}&email={{ search_email }}&student_id={{ search_student }}&date={{ search_date }}">Prev</a>
+  {% endif %}
+  Page {{ page }} of {{ total_pages }}
+  {% if page < total_pages %}
+    <a href="?page={{ page+1 }}&sort_by={{ sort_by }}&sort_order={{ sort_order }}&email={{ search_email }}&student_id={{ search_student }}&date={{ search_date }}">Next</a>
+  {% endif %}
+</div>
+
+<script>
+// Filter button
+document.getElementById('apply-filters').addEventListener('click', () => {
+  const email = document.getElementById('search-email').value;
+  const student = document.getElementById('search-student').value;
+  const date = document.getElementById('search-date').value;
+  const sort_by = document.getElementById('sort-by').value;
+  const sort_order = document.getElementById('sort-order').value;
+
+  const params = new URLSearchParams();
+  if(email) params.set('email', email);
+  if(student) params.set('student_id', student);
+  if(date) params.set('date', date);
+  params.set('sort_by', sort_by);
+  params.set('sort_order', sort_order);
+
+  window.location.search = params.toString();
+});
+
+// Update payment status
+document.querySelectorAll('.update-status-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const uid = btn.dataset.uid;
+    if(confirm('Mark this payment as paid?')) {
+      const res = await fetch(`/update_payment_status/${uid}`, {
+        method: 'POST',
+      });
+      if(res.ok) {
+        alert('Payment marked as paid.');
+        window.location.reload();
+      } else {
+        alert('Failed to update status.');
+      }
+    }
+  });
+});
+</script>
+
+</body>
+</html>
